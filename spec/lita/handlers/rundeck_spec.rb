@@ -93,7 +93,7 @@ describe Lita::Handlers::Rundeck, lita_handler: true do
   it { routes_command("rundeck executions").to(:executions) }
   it { routes_command("rundeck running").to(:running) }
   it { routes_command("rundeck aliases").to(:aliases) }
-  it { routes_command("rundeck alias register aliasfoo --project Litatest --job dateoutput").to(:alias_register) }
+  it { routes_command("rundeck alias register aliasfoo --project Litatest --job dateoutput --options option=foobar").to(:alias_register) }
   it { routes_command("rundeck alias forget aliasfoo").to(:alias_forget) }
   it { routes_command("rundeck run aliasfoo").to(:run) }
   it { routes_command("rundeck run aliasfoo --options SECONDS=60").to(:run) }
@@ -275,6 +275,18 @@ Execution 285 is running. Average job duration is 1.717 seconds.
 EOF
     end
 
+    it "submit aliased job with options and have it succeed" do
+      allow(Lita::Authorization).to receive(:user_in_group?).and_return(true)
+      grab_request("get", 200, rundeck_projects)
+      grab_request("get", 200, rundeck_jobs)
+      grab_request("get", 200, rundeck_run)
+      send_command("rundeck alias register aliasfoo --project Litatest --job dateoutput --options foo=bar")
+      send_command("rundeck run aliasfoo --options SECONDS=60")
+      expect(replies.last).to eq <<-EOF.chomp
+Execution 285 is running. Average job duration is 1.717 seconds.
+EOF
+    end
+
     it "submit fully qualified job and have it succeed" do
       allow(Lita::Authorization).to receive(:user_in_group?).and_return(true)
       grab_request("get", 200, rundeck_projects)
@@ -444,11 +456,11 @@ EOF
     end
 
     it "lists aliases" do
-      send_command("rundeck alias register aliasfoo --project Litatest --job dateoutput")
+      send_command("rundeck alias register aliasfoo --project Litatest --job dateoutput --options foo=bar")
       send_command("rundeck aliases")
       expect(replies.last).to eq <<-EOF.chomp
 Alias = [Project] - Job
- aliasfoo = [Litatest] - dateoutput
+ aliasfoo = [Litatest] - dateoutput - foo=bar - 
 EOF
     end
 
@@ -457,6 +469,13 @@ EOF
   describe "#alias_register" do
     it "registers a new alias" do
       send_command("rundeck alias register aliasfoo --project Litatest --job dateoutput")
+      expect(replies.last).to eq <<-EOF.chomp
+Alias registered
+EOF
+    end
+
+    it "registers a new alias with options" do
+      send_command("rundeck alias register aliasfoo --project Litatest --job dateoutput --options foo=bar")
       expect(replies.last).to eq <<-EOF.chomp
 Alias registered
 EOF
